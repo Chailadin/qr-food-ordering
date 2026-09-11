@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - Kitchen Orders</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f4f4f9; padding: 20px; max-width: 900px; margin: auto; }
+        
+        /* Header */
+        .header { background: #000; color: #fff; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { font-size: 24px; color: #FF5E1E; }
+
+        /* Order Cards Grid */
+        .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .order-card { background: #fff; border: 1px solid #ddd; border-top: 5px solid #FF5E1E; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        
+        .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .table-num { font-weight: bold; background: #FF5E1E; color: white; padding: 4px 8px; border-radius: 4px; font-size: 14px; }
+        
+        .status-badge { font-weight: bold; padding: 4px 8px; border-radius: 4px; font-size: 12px; text-transform: uppercase; }
+        .status-pending, .status-Pending { background: #fff3cd; color: #856404; }
+        .status-preparing, .status-Preparing { background: #cce5ff; color: #004085; }
+        .status-completed, .status-Completed { background: #d4edda; color: #155724; }
+
+        .order-details { margin: 10px 0; font-size: 14px; color: #333; }
+        .order-total { font-size: 18px; font-weight: bold; margin-top: 10px; }
+
+        /* Action Buttons */
+        .btn-group { display: flex; gap: 8px; margin-top: 15px; }
+        .btn { flex: 1; padding: 8px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; text-align: center; font-size: 13px; }
+        .btn-prep { background: #007bff; color: white; }
+        .btn-done { background: #28a745; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Kitchen Staff Dashboard</h1>
+        <button onclick="fetchOrders()" style="background: #FF5E1E; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Refresh</button>
+    </div>
+
+    <div class="orders-grid" id="orders-container">
+        Loading orders...
+    </div>
+
+    <script>
+        function fetchOrders() {
+            fetch('/api/orders')
+                .then(res => res.json())
+                .then(orders => {
+                    const container = document.getElementById('orders-container');
+                    if (!orders.length) {
+                        container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #666;">No active orders.</p>';
+                        return;
+                    }
+
+                    container.innerHTML = orders.map(order => {
+                        const currentStatus = (order.status || '').toLowerCase();
+
+                        return `
+                            <div class="order-card">
+                                <div class="order-header">
+                                    <span>Order #${order.id}</span>
+                                    <span class="table-num">Table ${order.table_number}</span>
+                                </div>
+
+                                <div class="order-details">
+                                    <p><strong>Status:</strong> <span class="status-badge status-${order.status}">${order.status}</span></p>
+                                    <div class="order-total">Total: ₱${Number(order.total_amount).toFixed(2)}</div>
+                                </div>
+
+                                <div class="btn-group">
+                                    ${currentStatus === 'pending' ? `
+                                        <button class="btn btn-prep" onclick="updateOrderStatus(${order.id}, 'Preparing')">Start Preparing</button>
+                                    ` : ''}
+                                    ${currentStatus === 'preparing' ? `
+                                        <button class="btn btn-done" onclick="updateOrderStatus(${order.id}, 'Completed')">Mark Completed</button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                });
+        }
+
+        function updateOrderStatus(orderId, newStatus) {
+            fetch(`/api/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Update failed');
+                return res.json();
+            })
+            .then(() => fetchOrders())
+            .catch(err => console.error('Error updating status:', err));
+        }
+
+        // Initial fetch and auto-refresh every 5 seconds
+        fetchOrders();
+        setInterval(fetchOrders, 5000);
+    </script>
+</body>
+</html>

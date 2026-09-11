@@ -1,0 +1,53 @@
+const mysql = require('mysql2/promise');
+
+async function fixAllTables() {
+  const connection = await mysql.createConnection({
+    host: 'mysql-1c1c57cb-qr-ordering-db.c.aivencloud.com',
+    port: 12017,
+    user: 'avnadmin',
+    password: 'AVNS_MdaZH9dVc3NiCyCbbHb',
+    database: 'defaultdb',
+    ssl: { rejectUnauthorized: false }
+  });
+
+  console.log("Connected to Aiven MySQL!");
+
+  // Drop old tables to eliminate column mismatches
+  await connection.query(`DROP TABLE IF EXISTS orders;`);
+  await connection.query(`DROP TABLE IF EXISTS menu;`);
+
+  // Create menu table matching frontend expectations
+  await connection.query(`
+    CREATE TABLE menu (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      price DECIMAL(10, 2) NOT NULL,
+      category VARCHAR(100),
+      image_url VARCHAR(255)
+    );
+  `);
+
+  // Create orders table matching server.js POST query
+  await connection.query(`
+    CREATE TABLE orders (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      table_number INT NOT NULL,
+      total_amount DECIMAL(10, 2) NOT NULL,
+      status VARCHAR(50) DEFAULT 'Pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Populate menu items
+  await connection.query(`
+    INSERT INTO menu (name, price, category, image_url) VALUES
+    ('Cheeseburger', 120.00, 'Burgers', 'https://via.placeholder.com/150'),
+    ('French Fries', 60.00, 'Sides', 'https://via.placeholder.com/150'),
+    ('Iced Tea', 45.00, 'Drinks', 'https://via.placeholder.com/150');
+  `);
+
+  console.log("SUCCESS: Both menu and orders tables recreated!");
+  await connection.end();
+}
+
+fixAllTables().catch(console.error);
