@@ -5,20 +5,20 @@ const QRCode = require('qrcode');
 const os = require('os');
 
 const app = express();
-// Use Render's dynamic port, or fallback to 3000 locally
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Database connection using environment variables with local fallbacks
+// Database connection with SSL enabled for Aiven compatibility
 const db = mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'qr_ordering_db',
-    port: process.env.DB_PORT || 3306
+    port: process.env.DB_PORT || 3306,
+    ssl: process.env.DB_HOST ? { rejectUnauthorized: false } : false
 });
 
 db.connect((err) => {
@@ -26,7 +26,6 @@ db.connect((err) => {
     else console.log('Connected to MySQL Database!');
 });
 
-// Helper function to auto-detect local network IP (for local testing)
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
     for (const name in interfaces) {
@@ -39,7 +38,6 @@ function getLocalIP() {
     return '192.168.1.6';
 }
 
-// Get Menu Items
 app.get('/api/menu', (req, res) => {
     db.query('SELECT * FROM menu', (err, results) => {
         if (err) return res.status(500).json({ error: 'Failed to fetch menu' });
@@ -47,15 +45,17 @@ app.get('/api/menu', (req, res) => {
     });
 });
 
-// Get All Orders (for Staff Dashboard)
+// Get All Orders (Order by ID to prevent missing created_at column crashes)
 app.get('/api/orders', (req, res) => {
-    db.query('SELECT * FROM orders ORDER BY created_at DESC', (err, results) => {
-        if (err) return res.status(500).json({ error: 'Failed to fetch orders' });
+    db.query('SELECT * FROM orders ORDER BY id DESC', (err, results) => {
+        if (err) {
+            console.error('Error fetching orders:', err);
+            return res.status(500).json({ error: 'Failed to fetch orders' });
+        }
         res.json(results);
     });
 });
 
-// Get Single Order Status (for Customer Tracking)
 app.get('/api/orders/:id', (req, res) => {
     db.query('SELECT * FROM orders WHERE id = ?', [req.params.id], (err, results) => {
         if (err || results.length === 0) return res.status(404).json({ error: 'Order not found' });
@@ -63,17 +63,18 @@ app.get('/api/orders/:id', (req, res) => {
     });
 });
 
-// Place Order
 app.post('/api/orders', (req, res) => {
     const { table_number, total_amount } = req.body;
     const sql = 'INSERT INTO orders (table_number, total_amount, status) VALUES (?, ?, "Pending")';
     db.query(sql, [table_number, total_amount], (err, result) => {
-        if (err) return res.status(500).json({ error: 'Failed to place order' });
+        if (err) {
+            console.error('Error inserting order:', err);
+            return res.status(500).json({ error: 'Failed to place order' });
+        }
         res.json({ message: 'Order placed successfully!', orderId: result.insertId });
     });
 });
 
-// Update Order Status (for Staff Dashboard)
 app.put('/api/orders/:id/status', (req, res) => {
     const { status } = req.body;
     db.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id], (err) => {
@@ -82,11 +83,8 @@ app.put('/api/orders/:id/status', (req, res) => {
     });
 });
 
-// Serve Dynamic QR Code as a Direct PNG Image
 app.get('/qr/:tableNumber', async (req, res) => {
     const tableNumber = req.params.tableNumber;
-    
-    // Automatically use host header on production (Render), or local IP on localhost
     const hostHeader = req.get('host');
     const targetUrl = hostHeader.includes('localhost') 
         ? `http://${getLocalIP()}:${PORT}/?table=${tableNumber}`
@@ -101,7 +99,6 @@ app.get('/qr/:tableNumber', async (req, res) => {
     }
 });
 
-// Listen on process.env.PORT or default 3000
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 });
