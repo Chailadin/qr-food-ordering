@@ -64,13 +64,20 @@ app.get('/api/orders/:id', (req, res) => {
 
 app.post('/api/orders', (req, res) => {
     const { table_number, total_amount } = req.body;
-    const sql = 'INSERT INTO orders (table_number, total_amount, status) VALUES (?, ?, "Pending")';
-    db.query(sql, [table_number, total_amount], (err, result) => {
+    
+    // Parameterized query prevents ER_BAD_FIELD_ERROR with string quotes
+    const sql = 'INSERT INTO orders (table_number, total_amount, status) VALUES (?, ?, ?)';
+    
+    db.query(sql, [table_number || 1, total_amount || 0, 'Pending'], (err, result) => {
         if (err) {
             console.error('Error inserting order:', err);
             return res.status(500).json({ error: 'Failed to place order' });
         }
-        res.json({ message: 'Order placed successfully!', orderId: result.insertId });
+        
+        res.json({ 
+            message: 'Order placed successfully!', 
+            orderId: result.insertId 
+        });
     });
 });
 
