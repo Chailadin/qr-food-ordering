@@ -12,11 +12,11 @@ async function fixAllTables() {
 
   console.log("Connected to Aiven MySQL!");
 
-  // Drop old tables to eliminate column mismatches
+  // Drop old tables
   await connection.query(`DROP TABLE IF EXISTS orders;`);
   await connection.query(`DROP TABLE IF EXISTS menu;`);
 
-  // Create menu table matching frontend expectations
+  // Create menu table
   await connection.query(`
     CREATE TABLE menu (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -27,7 +27,7 @@ async function fixAllTables() {
     );
   `);
 
-  // Create orders table matching server.js POST query
+  // Create orders table
   await connection.query(`
     CREATE TABLE orders (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -38,6 +38,9 @@ async function fixAllTables() {
     );
   `);
 
+  // SET STARTING ORDER ID TO 20
+  await connection.query(`ALTER TABLE orders AUTO_INCREMENT = 20;`);
+
   // Populate menu items
   await connection.query(`
     INSERT INTO menu (name, price, category, image_url) VALUES
@@ -46,7 +49,7 @@ async function fixAllTables() {
     ('Iced Tea', 45.00, 'Drinks', 'https://via.placeholder.com/150');
   `);
 
-  console.log("SUCCESS: Both menu and orders tables recreated!");
+  console.log("SUCCESS: Both menu and orders tables recreated! Starting Order ID set to 20.");
   await connection.end();
 }
 
