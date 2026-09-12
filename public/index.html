@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Fast Food Menu & Order</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -37,8 +40,26 @@
             cursor: pointer;
         }
 
+        /* Container for table selector label and input */
+        .table-selector-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.15);
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        .table-selector-label {
+            font-family: sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
         .table-input-box {
-            padding: 10px;
+            padding: 8px;
             font-size: 20px;
             font-weight: bold;
             border-radius: 6px;
@@ -47,7 +68,7 @@
             color: #000;
             outline: none;
             text-align: center;
-            width: 80px;
+            width: 70px;
             font-family: sans-serif;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
@@ -102,7 +123,10 @@
             <div id="qrcode"></div>
         </div>
 
-        <input type="number" class="table-input-box" id="table-input" value="1" min="1" max="99" oninput="updateQrCode(this.value)" aria-label="Table Number" title="Table Number">
+        <div class="table-selector-box">
+            <span class="table-selector-label">Choose your table:</span>
+            <input type="number" class="table-input-box" id="table-input" value="1" min="1" max="99" oninput="updateQrCode(this.value)" aria-label="Table Number" title="Table Number">
+        </div>
     </div>
 
     <!-- Main Application View -->
