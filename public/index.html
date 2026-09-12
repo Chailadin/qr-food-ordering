@@ -8,27 +8,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Arial Black', Arial, sans-serif; background: #f4f4f4; max-width: 700px; margin: auto; border: 1px solid #ddd; position: relative; min-height: 100vh; }
         
-        /* Orange Landing Screen */
-        .scan-screen { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #FF5E1E; color: white; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; z-index: 2000; text-align: center; padding: 20px;
-        }
-        .qr-placeholder { 
-            background: white; padding: 15px; border-radius: 12px; margin: 20px 0; 
-            box-shadow: 0 8px 16px rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center;
-        }
-        .qr-placeholder img { width: 180px; height: 180px; display: block; border-radius: 4px; }
-
-        .table-input-group { margin-top: 15px; }
-        .table-input-group input { 
-            padding: 10px; font-size: 16px; border-radius: 4px; border: none; width: 100px; text-align: center; font-weight: bold;
-        }
-        .table-input-group button { 
-            padding: 10px 20px; font-size: 16px; background: #000; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 5px;
-        }
-
-        /* Menu Display */
+        /* Header Banner */
         .header { background: #FF5E1E; color: white; padding: 25px 20px; position: relative; }
         .header h3 { font-size: 20px; letter-spacing: 2px; }
         .header h1 { font-size: 48px; color: #000; line-height: 0.9; margin-top: 5px; }
@@ -38,6 +18,7 @@
         .sidebar { background: #000; width: 60px; color: white; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold; padding: 20px 0; }
         .content { flex: 1; padding: 20px; }
 
+        /* Category Header Banners */
         .category-title { background: #FF5E1E; color: #000; display: inline-block; padding: 6px 20px; font-size: 16px; margin: 20px 0 10px 0; border-radius: 2px; text-transform: uppercase; }
 
         .menu-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 15px; color: #222; }
@@ -59,18 +40,18 @@
 <body>
 
     <!-- LANDING SCREEN -->
-    <div class="scan-screen" id="scan-screen">
+    <div class="scan-screen" id="scan-screen" style="padding: 30px; text-align: center;">
         <h2>WELCOME TO FAST FOOD</h2>
         <p style="font-family: sans-serif; font-weight: normal; margin-top: 8px;">Scan your table's QR Code to open the menu</p>
 
-        <div class="qr-placeholder">
-            <img id="qr-img" src="/qr/1" alt="Table QR Code">
+        <div class="qr-placeholder" style="margin: 20px 0;">
+            <img id="qr-img" src="/qr/1" alt="Table QR Code" style="width: 180px; height: 180px;">
         </div>
 
         <p style="font-family: sans-serif; font-size: 14px;">Or enter your Table Number below:</p>
-        <div class="table-input-group">
-            <input type="number" id="manual-table-input" placeholder="Table #" min="1" value="1">
-            <button onclick="accessMenuWithTable()">ENTER</button>
+        <div class="table-input-group" style="margin-top: 10px;">
+            <input type="number" id="manual-table-input" placeholder="Table #" min="1" value="1" style="padding: 8px; font-size: 16px; width: 80px; text-align: center;">
+            <button onclick="accessMenuWithTable()" style="padding: 8px 15px; font-size: 16px; background: #FF5E1E; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold;">ENTER</button>
         </div>
     </div>
 
@@ -124,7 +105,6 @@
         let total = 0;
         let activeOrderId = null;
 
-        // Reliable image fallbacks based on item category/name
         const defaultImages = {
             'burgers': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&auto=format&fit=crop',
             'sides': 'https://images.unsplash.com/photo-1576107232684-1279f3908594?w=300&auto=format&fit=crop',
@@ -135,10 +115,13 @@
         if (tableNumber) {
             initMenu(tableNumber);
         } else {
-            document.getElementById('manual-table-input').addEventListener('input', (e) => {
-                const val = e.target.value || 1;
-                document.getElementById('qr-img').src = `/qr/${val}?t=${new Date().getTime()}`;
-            });
+            const manualInput = document.getElementById('manual-table-input');
+            if (manualInput) {
+                manualInput.addEventListener('input', (e) => {
+                    const val = e.target.value || 1;
+                    document.getElementById('qr-img').src = `/qr/${val}?t=${new Date().getTime()}`;
+                });
+            }
         }
 
         function accessMenuWithTable() {
@@ -149,6 +132,7 @@
         }
 
         function initMenu(table) {
+            tableNumber = table;
             document.getElementById('scan-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'block';
             document.getElementById('table-display').innerText = `Table ${table}`;
@@ -171,7 +155,6 @@
                         categories[cat].push(item);
                     });
 
-                    // Populate category sections
                     for (const [categoryName, items] of Object.entries(categories)) {
                         let sectionHtml = `<div class="category-title">${categoryName}</div>`;
                         items.forEach(item => {
@@ -185,7 +168,6 @@
                         });
                         sectionsContainer.innerHTML += sectionHtml;
 
-                        // Render reliable high-quality category image on right sidebar
                         const catKey = categoryName.toLowerCase();
                         const imgSrc = defaultImages[catKey] || defaultImages['default'];
                         imagesContainer.innerHTML += `<img src="${imgSrc}" class="circle-img" alt="${categoryName}">`;
@@ -214,10 +196,16 @@
         function closeModal() { document.getElementById('review-modal').style.display = 'none'; }
 
         function submitOrder() {
+            // Ensure table_number is parsed as an integer and defaults to 1 if missing
+            const parsedTableNumber = parseInt(tableNumber, 10) || 1;
+
             fetch('/api/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ table_number: tableNumber, total_amount: total })
+                body: JSON.stringify({ 
+                    table_number: parsedTableNumber, 
+                    total_amount: total 
+                })
             })
             .then(res => res.json())
             .then(data => {
@@ -231,7 +219,7 @@
             })
             .catch(err => {
                 console.error('Error submitting order:', err);
-                alert('Order submitted!');
+                alert('Failed to place order. Please try again.');
             });
         }
 

@@ -2,11 +2,11 @@ const mysql = require('mysql2/promise');
 
 async function fixAllTables() {
   const connection = await mysql.createConnection({
-    host: 'mysql-1c1c57cb-qr-ordering-db.c.aivencloud.com',
-    port: 12017,
-    user: 'avnadmin',
-    password: 'AVNS_MdaZH9dVc3NiCyCbbHb',
-    database: 'defaultdb',
+    host: process.env.DB_HOST || 'mysql-1c1c57cb-qr-ordering-db.c.aivencloud.com',
+    port: process.env.DB_PORT || 12017,
+    user: process.env.DB_USER || 'avnadmin',
+    password: process.env.DB_PASSWORD || 'AVNS_MdaZH9dVc3NiCyCbbHb',
+    database: process.env.DB_NAME || 'defaultdb',
     ssl: { rejectUnauthorized: false }
   });
 

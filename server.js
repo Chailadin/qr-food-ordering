@@ -85,20 +85,26 @@ app.put('/api/orders/:id/status', (req, res) => {
 
 app.get('/qr/:tableNumber', async (req, res) => {
     const tableNumber = req.params.tableNumber;
-    const hostHeader = req.get('host');
-    const targetUrl = hostHeader.includes('localhost') 
-        ? `http://${getLocalIP()}:${PORT}/?table=${tableNumber}`
-        : `${req.protocol}://${hostHeader}/?table=${tableNumber}`;
+    
+    // Uses live Render domain by default so QR codes work across all mobile networks
+    const baseUrl = process.env.BASE_URL || 'https://qr-food-ordering-app.onrender.com';
+    const targetUrl = `${baseUrl}/?table=${tableNumber}`;
 
     try {
         const qrBuffer = await QRCode.toBuffer(targetUrl);
         res.type('png');
         res.send(qrBuffer);
     } catch (err) {
+        console.error('QR Generation Error:', err);
         res.status(500).send('Error generating QR Code');
     }
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+    const baseUrl = process.env.BASE_URL || 'https://qr-food-ordering-app.onrender.com';
+    console.log(`\n==================================================`);
+    console.log(`Server running locally on: http://localhost:${PORT}`);
+    console.log(`Live Render Production URL: ${baseUrl}`);
+    console.log(`Test QR Code (Table 2): http://localhost:${PORT}/qr/2`);
+    console.log(`==================================================\n`);
 });
