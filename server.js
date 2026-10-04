@@ -131,6 +131,65 @@ app.put('/api/orders/:id/status', (req, res) => {
     });
 });
 
+// PayMongo Online Checkout Endpoint (QRPh / GCash / Maya)
+app.post('/api/create-checkout', async (req, res) => {
+    const { items, table_number } = req.body;
+
+    if (!items || items.length === 0) {
+        return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    // Convert items into PayMongo line items (Amounts in centavos: ₱120.00 = 12000)
+    const line_items = items.map(item => ({
+        currency: 'PHP',
+        amount: Math.round(item.price * 100),
+        name: item.name,
+        quantity: item.quantity
+    }));
+
+    const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY || 'sk_test_LpLB38KkLCQv3MUVojqaF58M';
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+    const payload = {
+        data: {
+            attributes: {
+                send_email_receipt: false,
+                show_description: true,
+                show_line_items: true,
+                payment_method_types: ['qrph', 'gcash', 'paymaya', 'card'],
+                line_items: line_items,
+                description: `Table ${table_number || 1} Food Order`,
+                success_url: `${baseUrl}/?table=${table_number || 1}&status=success`,
+                cancel_url: `${baseUrl}/?table=${table_number || 1}&status=cancelled`
+            }
+        }
+    };
+
+    try {
+        const response = await fetch('https://api.paymongo.com/v1/checkout_sessions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (data.data && data.data.attributes && data.data.attributes.checkout_url) {
+            res.json({ checkout_url: data.data.attributes.checkout_url });
+        } else {
+            console.error('PayMongo API Error:', data);
+            res.status(400).json({ error: 'Failed to create payment session', details: data });
+        }
+    } catch (error) {
+        console.error('PayMongo Checkout Server Error:', error);
+        res.status(500).json({ error: 'Internal server error processing payment' });
+    }
+});
+
 app.get('/qr/:tableNumber', async (req, res) => {
     const tableNumber = req.params.tableNumber;
     const baseUrl = process.env.BASE_URL || 'https://qr-food-ordering-app.onrender.com';
