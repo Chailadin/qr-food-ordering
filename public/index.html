@@ -104,6 +104,7 @@
         /* Bottom Action Bar */
         .cart-bar { background: #f8f9fa; border-top: 2px solid #FF5E1E; padding: 15px 20px; text-align: center; }
         .order-btn { background: #FF5E1E; color: white; border: none; padding: 12px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
+        .paymongo-btn { background: #0070ba; color: white; border: none; padding: 12px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 8px; }
         .clear-btn { background: #dc3545; color: white; border: none; padding: 12px; font-size: 14px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
 
         .status-box { background: #fff3cd; color: #856404; padding: 15px; margin: 15px; border-radius: 8px; border: 1px solid #ffeeba; font-family: sans-serif; text-align: left; }
@@ -170,7 +171,17 @@
             <hr style="margin: 10px 0;">
             <div id="modal-items-list" style="margin-bottom: 15px;"></div>
             <p><strong>Total:</strong> ₱<span id="modal-total">0.00</span></p>
-            <button class="order-btn" onclick="submitOrder()" style="width: 100%; margin-top: 10px;">CONFIRM & PLACE ORDER</button>
+
+            <!-- Pay Online Button -->
+            <button class="paymongo-btn" id="paymongo-btn" onclick="payOnlineWithPayMongo()">
+                PAY ONLINE (GCash / QRPh / Maya)
+            </button>
+
+            <!-- Regular Order Button -->
+            <button class="order-btn" onclick="submitOrder()" style="width: 100%; margin-top: 8px;">
+                CASH ON DELIVERY / PAY AT COUNTER
+            </button>
+
             <button onclick="clearCart()" style="width: 100%; margin-top: 8px; padding: 8px; border: none; background: #dc3545; color: white; border-radius: 4px; cursor: pointer; font-weight: bold;">CLEAR ORDER</button>
             <button onclick="closeModal()" style="width: 100%; margin-top: 5px; padding: 8px; border: none; background: #6c757d; color: white; border-radius: 4px; cursor: pointer;">Close</button>
         </div>
@@ -179,6 +190,7 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         let tableNumber = urlParams.get('table');
+        const paymentStatus = urlParams.get('status');
 
         let cart = {};
         let menuItemsList = [];
@@ -204,6 +216,14 @@
                 initMenu(tableNumber);
             } else {
                 updateQrCode(document.getElementById('table-input').value);
+            }
+
+            // Handle return from PayMongo Checkout
+            if (paymentStatus === 'success') {
+                alert('✅ Payment successful! Your paid order has been submitted to the kitchen.');
+                clearCart();
+            } else if (paymentStatus === 'cancelled') {
+                alert('❌ Online payment was cancelled. You can try again or select pay at counter.');
             }
         };
 
@@ -344,6 +364,44 @@
 
         function closeModal() { 
             document.getElementById('review-modal').style.display = 'none'; 
+        }
+
+        // PayMongo Online Payment Process
+        async function payOnlineWithPayMongo() {
+            const cartItems = Object.values(cart);
+            if (!cartItems.length) return alert('Your cart is empty!');
+
+            const payBtn = document.getElementById('paymongo-btn');
+            payBtn.disabled = true;
+            payBtn.innerText = 'Connecting to PayMongo...';
+
+            const parsedTableNumber = parseInt(tableNumber, 10) || 1;
+
+            try {
+                const response = await fetch('/api/create-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: cartItems,
+                        table_number: parsedTableNumber
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                } else {
+                    alert('Could not start online payment session.');
+                    payBtn.disabled = false;
+                    payBtn.innerText = 'PAY ONLINE (GCash / QRPh / Maya)';
+                }
+            } catch (err) {
+                console.error('PayMongo Request Error:', err);
+                alert('Error connecting to payment gateway.');
+                payBtn.disabled = false;
+                payBtn.innerText = 'PAY ONLINE (GCash / QRPh / Maya)';
+            }
         }
 
         function submitOrder() {
