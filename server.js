@@ -26,7 +26,7 @@ let isDbConnected = false;
 const db = mysql.createPool({
     host: process.env.DB_HOST || 'mysql-1c1c57cb-qr-ordering-db.c.aivencloud.com',
     user: process.env.DB_USER || 'avnadmin',
-    password: process.env.DB_PASSWORD || 'AVNS_MdaZH9dVc3NiCyCbbHb',
+    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'defaultdb',
     port: process.env.DB_PORT || 12017,
     ssl: { rejectUnauthorized: false },
@@ -131,25 +131,28 @@ app.put('/api/orders/:id/status', (req, res) => {
     });
 });
 
-// PayMongo Online Checkout Endpoint (QRPh / GCash / Maya)
+// PayMongo Online Checkout Endpoint (GCash / Maya / Card)
 app.post('/api/create-checkout', async (req, res) => {
     const { items, table_number } = req.body;
 
-    if (!items || items.length === 0) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: 'Cart is empty' });
     }
 
     // Convert items into PayMongo line items (Amounts in centavos: ₱120.00 = 12000)
     const line_items = items.map(item => ({
         currency: 'PHP',
-        amount: Math.round(item.price * 100),
-        name: item.name,
-        quantity: item.quantity
+        amount: Math.round(Number(item.price) * 100),
+        name: String(item.name || 'Food Item'),
+        quantity: Math.max(1, parseInt(item.quantity, 10) || 1)
     }));
 
-    const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY || 'sk_test_LpLB38KkLCQv3MUVojqaF58M';
+    const PAYMONGO_SECRET_KEY = (process.env.PAYMONGO_SECRET_KEY || '').trim();
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Preserve HTTPS proxy on Render
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
 
     const payload = {
         data: {
@@ -157,7 +160,7 @@ app.post('/api/create-checkout', async (req, res) => {
                 send_email_receipt: false,
                 show_description: true,
                 show_line_items: true,
-                payment_method_types: ['qrph', 'gcash', 'paymaya', 'card'],
+                payment_method_types: ['gcash', 'paymaya', 'card'],
                 line_items: line_items,
                 description: `Table ${table_number || 1} Food Order`,
                 success_url: `${baseUrl}/?table=${table_number || 1}&status=success`,
@@ -167,26 +170,32 @@ app.post('/api/create-checkout', async (req, res) => {
     };
 
     try {
+        const authHeader = 'Basic ' + Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64');
+
         const response = await fetch('https://api.paymongo.com/v1/checkout_sessions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Basic ' + Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')
+                'Accept': 'application/json',
+                'Authorization': authHeader
             },
             body: JSON.stringify(payload)
         });
 
         const data = await response.json();
 
-        if (data.data && data.data.attributes && data.data.attributes.checkout_url) {
-            res.json({ checkout_url: data.data.attributes.checkout_url });
+        if (response.ok && data.data && data.data.attributes && data.data.attributes.checkout_url) {
+            return res.json({ checkout_url: data.data.attributes.checkout_url });
         } else {
-            console.error('PayMongo API Error:', data);
-            res.status(400).json({ error: 'Failed to create payment session', details: data });
+            console.error('PayMongo API Error Details:', JSON.stringify(data, null, 2));
+            return res.status(response.status || 400).json({ 
+                error: 'Failed to create payment session', 
+                details: data 
+            });
         }
     } catch (error) {
         console.error('PayMongo Checkout Server Error:', error);
-        res.status(500).json({ error: 'Internal server error processing payment' });
+        return res.status(500).json({ error: 'Internal server error processing payment' });
     }
 });
 
